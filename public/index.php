@@ -179,17 +179,18 @@ router(array('POST', 'OPTIONS'), '^/api/cmd368/transfer$', function() {
 });
 
 
-// Ho Gaming - Get Token.
-router(array('POST', 'OPTIONS'), '^/api/hogaming/getToken$', function() {
+// Ho Gaming - Get Game Url.
+router(array('POST', 'OPTIONS'), '^/api/hogaming/getGameUrl$', function() {
 
     // Set Content type to application/json
     header('Content-Type: application/json');
 
-    if (isset($_POST['apiKey']) && isset($_POST['userKey'])) 
+    if (isset($_POST['apiKey']) && isset($_POST['userKey']) && isset($_POST['lang'])) 
     {
         $request = new stdClass();
         $request->apiKey = $_POST['apiKey'];
         $request->userKey = $_POST['userKey'];
+        $request->lang = (string) $_POST['lang'];
 
         $responseJSON = '';
         if (!validateHoGamingGetTokenParams($request, $responseJSON)) 
@@ -198,17 +199,22 @@ router(array('POST', 'OPTIONS'), '^/api/hogaming/getToken$', function() {
         }
         else
         {
+            // Get User Info
             $userInfo = getUserInfoByUserKey($request->userKey);
-            $request = Requests::get(getenv('HO_URL') . '/cgibin/ClientLoginServlet?uname=' . $userInfo['userKey'] . '&currency=' . $userInfo['currencyCode'] . '&country=' . $userInfo['countryCode'] . '&fn=' . $userInfo['userName'] . '&ln=lastname&mode=1&commonwallet=true');
-            if ($request->status_code == 200)
+            // Send Request
+            $httpRequest = Requests::get(getenv('HO_URL') . '/cgibin/ClientLoginServlet?uname=' . $userInfo['userKey'] . '&currency=' . $userInfo['currencyCode'] . '&country=' . $userInfo['countryCode'] . '&fn=' . $userInfo['userName'] . '&ln=lastname&mode=1&commonwallet=true');
+            // If http status code is OK
+            if ($httpRequest->status_code == 200)
             {
                 // Xml Load String
-                $xml = simplexml_load_string($request->body);
+                $xml = simplexml_load_string($httpRequest->body);
                 // Get Session ID
-                $sessionId = (string) $xml->attribute[2]->value;
+                $sessionId = (string) $xml->attribute[2]->value;    
+                // Build Game URL
+                $gameUrl = getenv('HO_URL') . '/login/visitor/cwlogin.jsp?sessionid=' . $sessionId . '&lang=' . $request->lang . '&version=2';
 
 
-                $dataObj = array('status' => 'success', 'statusMsg' => 'OK', 'sessionId' => $sessionId);
+                $dataObj = array('status' => 'success', 'statusMsg' => 'OK', 'data' => ['gameUrl' => $gameUrl]);
                 $responseJSON = json_encode($dataObj);
             }
             else
