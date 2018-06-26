@@ -18,6 +18,11 @@ function validUsername($userName)
     if (ctype_alnum($userName)) return true;
 }
 
+function validAmt($amount)
+{
+    if (is_numeric($amount)) return true;
+}
+
 function getPlayerInfoById($id)
 {
     global $odb;
@@ -26,11 +31,11 @@ function getPlayerInfoById($id)
 	if ($qry->rowCount() != 0) return $qry->fetch(PDO::FETCH_ASSOC);
 }
 
-function getPlayerInfoBycustId($custId)
+function getUserInfoByUserKey($userKey)
 {
     global $odb;
-	$qry = $odb->prepare("SELECT * FROM `users` WHERE `custId` = :custId LIMIT 1;");
-	$qry->execute(array(":custId" => $custId));
+	$qry = $odb->prepare("SELECT * FROM `users` WHERE `userKey` = :userKey LIMIT 1;");
+	$qry->execute(array(":userKey" => $userKey));
 	if ($qry->rowCount() != 0) return $qry->fetch(PDO::FETCH_ASSOC);
 }
 
@@ -86,6 +91,73 @@ function validateCQ9LogoutParams($request, &$responseJSON)
     }
 
     if (!validUsername($request->userName)) 
+    {
+        $errorObj = array('status' => 'error', 'statusMsg' => 'Username not found.');
+        $responseJSON = json_encode($errorObj);
+        return false;
+    }
+
+    return true;
+}
+
+function validateCMD368Transfer($request, &$responseJSON)
+{
+    if ($request->apiKey == '' || $request->userKey == '' || $request->type == '' || $request->amount == '') 
+    {
+        $errorObj = array('status' => 'error', 'statusMsg' => 'Parameters Error.');
+        $responseJSON = json_encode($errorObj);
+        return false;
+    }
+
+    if ($request->apiKey != getenv('API_KEY'))
+    {
+        $errorObj = array('status' => 'error', 'statusMsg' => 'Invalid Secret key.');
+        $responseJSON = json_encode($errorObj);
+        return false;
+    }
+
+    if (!validUsername($request->userKey))
+    {
+        $errorObj = array('status' => 'error', 'statusMsg' => 'Username not found.');
+        $responseJSON = json_encode($errorObj);
+        return false;
+    }
+
+    $typeActions = array('Deposit', 'Withdrawal');
+    if (!in_array($request->type, $typeActions)) 
+    {
+        $errorObj = array('status' => 'error', 'statusMsg' => 'Invalid type of Transfer.');
+        $responseJSON = json_encode($errorObj);
+        return false;
+    }
+
+    if (!validAmt($request->amount)) 
+    {
+        $errorObj = array('status' => 'error', 'statusMsg' => 'Invalid Amount.');
+        $responseJSON = json_encode($errorObj);
+        return false;
+    }
+
+    return true;
+}
+
+function validateHoGamingGetTokenParams($request, &$responseJSON)
+{
+    if ($request->apiKey == '' || $request->userKey == '') 
+    {
+        $errorObj = array('status' => 'error', 'statusMsg' => 'Parameters Error.');
+        $responseJSON = json_encode($errorObj);
+        return false;
+    }
+
+    if ($request->apiKey != getenv('API_KEY'))
+    {
+        $errorObj = array('status' => 'error', 'statusMsg' => 'Invalid Secret key.');
+        $responseJSON = json_encode($errorObj);
+        return false;
+    }
+
+    if (!validUsername($request->userKey))
     {
         $errorObj = array('status' => 'error', 'statusMsg' => 'Username not found.');
         $responseJSON = json_encode($errorObj);
