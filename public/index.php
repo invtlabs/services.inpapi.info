@@ -7,8 +7,10 @@ require_once __DIR__ . "/../vendor/autoload.php";
 $dotenv = new Dotenv\Dotenv(__DIR__ . '/../');
 $dotenv->load();
 
+require_once __DIR__ . "/../src/dbPDO.php";
 require_once __DIR__ . "/../src/functions.php";
 require_once __DIR__ . "/../src/mockedFunctions.php";
+require_once __DIR__ . "/../src/Crypt.php";
 
 
 // CQ9 - Launch Game.
@@ -215,6 +217,82 @@ router(array('POST', 'OPTIONS'), '^/api/hogaming/getGameUrl$', function() {
 
 
                 $dataObj = array('status' => 'success', 'statusMsg' => 'OK', 'data' => ['gameUrl' => $gameUrl]);
+                $responseJSON = json_encode($dataObj);
+            }
+            else
+            {
+                $errorObj = array('status' => 'error', 'statusMsg' => 'Cannot retrieve Token from Provider.');
+                $responseJSON = json_encode($errorObj);
+            }
+        }
+    }
+    else
+    {
+        $errorObj = array('status' => 'error', 'statusMsg' => 'Missing or Invalid parameters.');
+        $responseJSON = json_encode($errorObj);
+    }
+
+    echo $responseJSON;
+});
+
+
+// SA Gaming - Get Game Url.
+router(array('POST', 'OPTIONS'), '^/api/sagaming/getToken$', function() {
+
+    // Set Content type to application/json
+    header('Content-Type: application/json');
+
+    if (isset($_POST['apiKey']) && isset($_POST['userKey']) && isset($_POST['gameType']) && isset($_POST['lang']) && isset($_POST['mobile'])) 
+    {
+        $request = new stdClass();
+        $request->apiKey = (string) $_POST['apiKey'];
+        $request->userKey = (string) $_POST['userKey'];
+        $request->gameType = (string) $_POST['gameType'];
+        $request->lang = (string) $_POST['lang'];
+        $request->mobile = (bool) $_POST['mobile'];
+
+        $responseJSON = '';
+        if (!validateSAGamingGetTokenParams($request, $responseJSON)) 
+        {
+            # code...
+        }
+        else
+        {
+            // Get User Info
+            $userInfo = getUserInfoByUserKey($request->userKey);
+            // Date
+            $date = date('Ymdhis', time());
+            // Query String
+            $qs = 'method=LoginRequest&Key=' . getenv('SA_SECRET_KEY') . '&Time=' . $date . '&Username=' . $userInfo['userKey'] . '&CurrencyType=' . $userInfo['currencyCode'];
+            $s = md5($qs . getenv('SA_MD5_KEY') . $date . getenv('SA_SECRET_KEY'));
+
+            $crypt = new DES(getenv('SA_ENCRYPT_KEY'));
+            $q = $crypt->encrypt($qs);
+
+            $data = array('q' => $q, 's' => $s);
+
+            $options = array(
+                'http' => array(
+                    'header'  => "Content-type: application/x-www-form-urlencoded\r\n",
+                    'method'  => 'POST',
+                    'content' => http_build_query($data)
+                )
+            );
+
+            $context  = stream_context_create($options);
+
+            $result = file_get_contents(getenv('SA_API'), false, $context);
+
+            if ($result === FALSE) { 
+                $errorObj = array('status' => 'error', 'statusMsg' => 'Cannot retrieve Token from Provider.');
+                $responseJSON = json_encode($errorObj);
+            }
+
+            $xml = simplexml_load_string($result);
+
+            if ($xml->ErrorMsgId == 0) 
+            {
+                $dataObj = array('status' => 'success', 'data' => ['gameUrl' => getenv('SA_CLIENT_LOADER'), 'token' => (string) $xml->Token, 'username' => $request->userKey, 'lobby' => getenv('SA_LOBBY_CODE'), 'lang' => $request->lang, 'mobile' => $request->mobile]);
                 $responseJSON = json_encode($dataObj);
             }
             else

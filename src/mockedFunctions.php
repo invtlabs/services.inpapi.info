@@ -1,7 +1,5 @@
 <?php
 
-include __DIR__ . "/../src/db.php";
-
 function serverDateTime()
 {
     date_default_timezone_set("Asia/Manila");
@@ -144,6 +142,32 @@ function validateCMD368Transfer($request, &$responseJSON)
 function validateHoGamingGetTokenParams($request, &$responseJSON)
 {
     if ($request->apiKey == '' || $request->userKey == '') 
+    {
+        $errorObj = array('status' => 'error', 'statusMsg' => 'Parameters Error.');
+        $responseJSON = json_encode($errorObj);
+        return false;
+    }
+
+    if ($request->apiKey != getenv('API_KEY'))
+    {
+        $errorObj = array('status' => 'error', 'statusMsg' => 'Invalid Secret key.');
+        $responseJSON = json_encode($errorObj);
+        return false;
+    }
+
+    if (!validUsername($request->userKey))
+    {
+        $errorObj = array('status' => 'error', 'statusMsg' => 'Username not found.');
+        $responseJSON = json_encode($errorObj);
+        return false;
+    }
+
+    return true;
+}
+
+function validateSAGamingGetTokenParams($request, &$responseJSON)
+{
+    if ($request->apiKey == '' || $request->userKey == '' || $request->gameType == '' || $request->lang == '') 
     {
         $errorObj = array('status' => 'error', 'statusMsg' => 'Parameters Error.');
         $responseJSON = json_encode($errorObj);
